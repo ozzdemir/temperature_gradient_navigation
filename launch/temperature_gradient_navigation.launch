@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <node name="temperature_gradient_navigation" pkg="temperature_gradient_navigation" type="temperature_gradient_navigation_node" respawn="false" output="screen">
+
+    </node>
+    <node type="rviz" name="rviz" pkg="rviz" args="-d $(find temperature_gradient_navigation)/config/rviz.rviz" />
+</launch>
