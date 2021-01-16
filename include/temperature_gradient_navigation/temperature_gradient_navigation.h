@@ -20,6 +20,7 @@ private:
     ros::NodeHandle nh_;
     ros::Subscriber odom_subs_;
     ros::Subscriber goalpose_subs_;
+    ros::Subscriber initialpose_subs_;
     ros::Subscriber map_subs_;
     ros::Publisher cmd_vel_pub_;
     ros::Publisher neighborhoods_marker_pub_;

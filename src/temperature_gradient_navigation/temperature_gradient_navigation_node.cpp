@@ -22,7 +22,7 @@ int main(int argc, char **argv)
   cv_bridge::CvImagePtr temperature_map_ptr(new cv_bridge::CvImage);
 
   // Periodically publish map
-  ros::Timer map_publishing_timer = nh.createTimer(ros::Duration(1.0), [&](const ros::TimerEvent &evt) {
+  ros::Timer map_publishing_timer = nh.createTimer(ros::Duration(0.1), [&](const ros::TimerEvent &evt) {
     cv::Mat temperature_map_downscaled = cv::Mat(temperature_map_source->size(), CV_8UC1);
     temperature_map_source->convertTo(temperature_map_downscaled, CV_8UC1, 127.5 / hot_temperature, 127.5);
     temperature_map_ptr->image = temperature_map_downscaled;

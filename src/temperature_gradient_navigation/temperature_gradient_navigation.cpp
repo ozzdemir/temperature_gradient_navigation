@@ -11,6 +11,7 @@ temperature_gradient_navigation::temperature_gradient_navigation(ros::NodeHandle
     odom_subs_ = nh_.subscribe("/odom", 1, &temperature_gradient_navigation::odom_cb, this);
     map_subs_ = nh_.subscribe("/map", 1, &temperature_gradient_navigation::map_cb, this);
     goalpose_subs_ = nh_.subscribe("/move_base_simple/goal", 1, &temperature_gradient_navigation::goalpose_cb, this);
+    initialpose_subs_ = nh_.subscribe("/initialpose", 1, &temperature_gradient_navigation::initialpose_cb, this);
     cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1);
     gz_sms_cli_ = nh_.serviceClient<gazebo_msgs::SetModelState>("/gazebo/set_model_state");
     visualization_ = visualization;
@@ -29,16 +30,13 @@ void temperature_gradient_navigation::map_cb(const nav_msgs::OccupancyGridConstP
     int size_x = msg->info.width;
     int size_y = msg->info.height;
     cv::Mat map = cv::Mat(size_y, size_x, CV_8S, (void *)msg->data.data());
-    auto unknowns_mask = map == -1;
-    auto occupied_mask = (map > 50) & (~unknowns_mask);
-    auto empty_mask = (map < 10) & (~unknowns_mask);
-
+    map.setTo(25, (map == -1));
     map.convertTo(map, CV_8U);
-    map.setTo(255, empty_mask);
-    map.setTo(0, occupied_mask);
+    map.setTo(255, (map > 50));
     map.copyTo(map_);
     if (!temperature_map_initialized)
     {
+        //std::cout << map_ << std::endl;
         temperature_map_initialized = true;
         temperature_map_ = cv::Mat(size_y, size_x, CV_64F, hot_temperature_);
         //temperature_map_.setTo(0, empty_mask);
@@ -77,7 +75,14 @@ void temperature_gradient_navigation::controller_cb(const ros::TimerEvent &evt)
 
 void temperature_gradient_navigation::initialpose_cb(const geometry_msgs::PoseWithCovarianceStamped &msg)
 {
-    gz_set_position(msg.pose.pose.position.x, msg.pose.pose.position.y);
+    //gz_set_position(msg.pose.pose.position.x, msg.pose.pose.position.y);
+    static cv::Mat_<double> initial_pos(3, 1);
+    static cv::Mat_<double> pixel_pos(3, 1);
+    initial_pos(0) = msg.pose.pose.position.x;
+    initial_pos(1) = msg.pose.pose.position.y;
+    initial_pos(2) = 1;
+    pixel_pos = real2pixel_tf_mat_ * initial_pos;
+    std::cout << temperature_map_.at<double>(int(pixel_pos(1)), int(pixel_pos(0))) << std::endl;
 }
 
 void temperature_gradient_navigation::goalpose_cb(const geometry_msgs::PoseStamped &msg)
@@ -93,7 +98,7 @@ void temperature_gradient_navigation::goalpose_cb(const geometry_msgs::PoseStamp
     goal_position_(1) = int(pixel_pos(1));
     goal_initialized_ = true;
     // Re-initialize temperature map
-    //temperature_map_.setTo(hot_temperature_);
+    temperature_map_.setTo(hot_temperature_);
     std::cout << goal_position_ << std::endl;
     temperature_map_.at<double>(goal_position_(1), goal_position_(0)) = cold_temperature_;
     std::cout << temperature_map_.at<double>(goal_position_(1), goal_position_(0)) << std::endl;
@@ -122,11 +127,6 @@ void temperature_gradient_navigation::update_anglemap()
 
 void temperature_gradient_navigation::temperature_iterator(const ros::TimerEvent &evt)
 {
-    /*static double kernel_elements[] = {0, 0.25, 0, 0.25, 0, 0.25, 0, 0.25, 0};
-    static cv::Mat kernel(3,3,CV_64F,kernel_elements);
-    
-    cv::filter2D(temperature_map_, temperature_map_, CV_64F, kernel);
-    */
     if (goal_initialized_)
     {
         temperature_map_.forEach<double>([&](double &p, const int *px) -> void {
@@ -134,9 +134,17 @@ void temperature_gradient_navigation::temperature_iterator(const ros::TimerEvent
             if ((px[0] == goal_position_(1)) && (px[1] == goal_position_(0)))
             {
             }
+            else if (px[0]==0 | px[0]== map_metadata_.height-1)
+            {
+
+            }
+            else if (px[1]==0 | px[1]== map_metadata_.width-1)
+            {
+
+            }
             else
             {           
-                if ((val != 0)) // Meaning that pixel is not on object
+                if (val != 255) // Meaning that pixel is not on object
                 {
                     p = (temperature_map_.at<double>(px[0] + 1, px[1]) +
                          temperature_map_.at<double>(px[0] - 1, px[1]) +
@@ -147,7 +155,7 @@ void temperature_gradient_navigation::temperature_iterator(const ros::TimerEvent
             }
         });
     }
-    std::cout << evt.current_real - evt.last_real << std::endl;
+    //std::cout << evt.current_real - evt.last_real << std::endl;
 }
 
 double temperature_gradient_navigation::get_gradient_angle(cv::Vec2i q)
