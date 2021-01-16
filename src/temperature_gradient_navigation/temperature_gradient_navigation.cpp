@@ -134,16 +134,14 @@ void temperature_gradient_navigation::temperature_iterator(const ros::TimerEvent
             if ((px[0] == goal_position_(1)) && (px[1] == goal_position_(0)))
             {
             }
-            else if (px[0]==0 | px[0]== map_metadata_.height-1)
+            else if (px[0] == 0 | px[0] == map_metadata_.height - 1)
             {
-
             }
-            else if (px[1]==0 | px[1]== map_metadata_.width-1)
+            else if (px[1] == 0 | px[1] == map_metadata_.width - 1)
             {
-
             }
             else
-            {           
+            {
                 if (val != 255) // Meaning that pixel is not on object
                 {
                     p = (temperature_map_.at<double>(px[0] + 1, px[1]) +
@@ -151,6 +149,10 @@ void temperature_gradient_navigation::temperature_iterator(const ros::TimerEvent
                          temperature_map_.at<double>(px[0], px[1] + 1) +
                          temperature_map_.at<double>(px[0], px[1] - 1)) /
                         4.0;
+                }
+                else
+                {
+                    p = hot_temperature_;
                 }
             }
         });
