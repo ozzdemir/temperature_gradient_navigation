@@ -6,11 +6,12 @@ temperature_gradient_navigation::temperature_gradient_navigation(ros::NodeHandle
     hot_temperature_ = hot_temperature;
     cold_temperature_ = cold_temperature;
     //controller_timer_ = nh_.createTimer(ros::Duration(0.01), &temperature_gradient_navigation::controller_cb, this);
+    temperature_iterator_timer_ = nh_.createTimer(ros::Duration(0.01), &temperature_gradient_navigation::temperature_iterator, this);
 
     odom_subs_ = nh_.subscribe("/odom", 1, &temperature_gradient_navigation::odom_cb, this);
     map_subs_ = nh_.subscribe("/map", 1, &temperature_gradient_navigation::map_cb, this);
     goalpose_subs_ = nh_.subscribe("/move_base_simple/goal", 1, &temperature_gradient_navigation::goalpose_cb, this);
-    cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1, this);
+    cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1);
     gz_sms_cli_ = nh_.serviceClient<gazebo_msgs::SetModelState>("/gazebo/set_model_state");
     visualization_ = visualization;
     //temperature_map_marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("/neighborhoods_marker", 1, true);
@@ -27,7 +28,7 @@ void temperature_gradient_navigation::map_cb(const nav_msgs::OccupancyGridConstP
     map_metadata_ = msg->info;
     int size_x = msg->info.width;
     int size_y = msg->info.height;
-    cv::Mat temp_map = cv::Mat(size_x, size_y, CV_8S, (void *)msg->data.data());
+    cv::Mat temp_map = cv::Mat(size_y, size_x, CV_8S, (void *)msg->data.data());
     auto unknowns_mask = temp_map == -1;
     auto occupied_mask = (temp_map > 50) & (~unknowns_mask);
     auto empty_mask = (temp_map < 10) & (~unknowns_mask);
@@ -35,10 +36,12 @@ void temperature_gradient_navigation::map_cb(const nav_msgs::OccupancyGridConstP
     temp_map.convertTo(temp_map, CV_8U);
     temp_map.setTo(255, empty_mask);
     temp_map.setTo(0, occupied_mask);
+    temp_map.copyTo(map_);
     if (!temperature_map_initialized)
     {
         temperature_map_initialized = true;
-        temperature_map_ = cv::Mat(size_x, size_y, CV_64F, hot_temperature_);
+        temperature_map_ = cv::Mat(size_y, size_x, CV_64F, hot_temperature_);
+        temperature_map_.setTo(0, empty_mask);
     }
     set_tf_mats(map_metadata_); // Set coordinate transform matrices
     //ROS_INFO("First one %d, %lf",temp_map.channels(), map_yaw);
@@ -90,9 +93,10 @@ void temperature_gradient_navigation::goalpose_cb(const geometry_msgs::PoseStamp
     goal_position_(1) = int(pixel_pos(1));
     goal_initialized_ = true;
     // Re-initialize temperature map
-    temperature_map_.setTo(hot_temperature_);
+    //temperature_map_.setTo(hot_temperature_);
     std::cout << goal_position_ << std::endl;
     temperature_map_.at<double>(goal_position_(1), goal_position_(0)) = cold_temperature_;
+    std::cout << temperature_map_.at<double>(goal_position_(1), goal_position_(0)) << std::endl;
 }
 
 void temperature_gradient_navigation::set_tf_mats(nav_msgs::MapMetaData metadata)
@@ -100,7 +104,7 @@ void temperature_gradient_navigation::set_tf_mats(nav_msgs::MapMetaData metadata
     double pixel2real_mat_elements[9] = {map_metadata_.resolution, 0, -map_metadata_.origin.position.x,
                                          0, -map_metadata_.resolution, map_metadata_.origin.position.y,
                                          0, 0, 1};
-    double real2pixel_mat_elements[9] = {1 / map_metadata_.resolution, 0,  -map_metadata_.origin.position.x / map_metadata_.resolution,
+    double real2pixel_mat_elements[9] = {1 / map_metadata_.resolution, 0, -map_metadata_.origin.position.x / map_metadata_.resolution,
                                          0, 1 / map_metadata_.resolution, -map_metadata_.origin.position.y / map_metadata_.resolution,
                                          0, 0, 1};
     pixel2real_tf_mat_ = cv::Mat(3, 3, CV_64F, pixel2real_mat_elements).clone();
@@ -116,17 +120,31 @@ void temperature_gradient_navigation::update_anglemap()
     cv::cartToPolar(dx, dy, magnitudemap_, anglemap_); // Anglemap later can be used in traversal
 }
 
-void temperature_gradient_navigation::temperature_iterator()
+void temperature_gradient_navigation::temperature_iterator(const ros::TimerEvent &evt)
 {
-    temperature_map_.forEach<double>([&](double &p, const int *position) -> void {
-        if (p != INT_MAX) // Meaning that pixel is not on object
-        {
-        }
-        else
-        {
-            p = INT_MAX;
-        }
-    });
+    /*static double kernel_elements[] = {0, 0.25, 0, 0.25, 0, 0.25, 0, 0.25, 0};
+    static cv::Mat kernel(3,3,CV_64F,kernel_elements);
+    
+    cv::filter2D(temperature_map_, temperature_map_, CV_64F, kernel);
+    */
+    if (goal_initialized_)
+    {
+        temperature_map_.forEach<double>([&](double &p, const int *px) -> void {
+            double val = map_.at<unsigned char>(px[0], px[1]);
+            //if ((px[0] != goal_position_(1)) && (px[1] != goal_position_(0)))
+            //{
+                if ((val != 0)) // Meaning that pixel is not on object
+                {
+                    p = (temperature_map_.at<double>(px[0] + 1, px[1]) +
+                         temperature_map_.at<double>(px[0] - 1, px[1]) +
+                         temperature_map_.at<double>(px[0], px[1] + 1) +
+                         temperature_map_.at<double>(px[0], px[1] - 1)) /
+                        4.0;
+                }
+            //}
+        });
+    }
+    std::cout << evt.current_real - evt.last_real << std::endl;
 }
 
 double temperature_gradient_navigation::get_gradient_angle(cv::Vec2i q)
@@ -160,4 +178,19 @@ bool temperature_gradient_navigation::gz_set_position(double x, double y)
     sms_msg.request.model_state.reference_frame = "map";
     bool ret = gz_sms_cli_.call(sms_msg);
     return ret;
+}
+
+const cv::Mat *temperature_gradient_navigation::get_map_ptr()
+{
+    return &map_;
+}
+
+const cv::Mat *temperature_gradient_navigation::get_temperaturemap_ptr()
+{
+    return &temperature_map_;
+}
+
+const cv::Mat *temperature_gradient_navigation::get_anglemap_ptr()
+{
+    return &anglemap_;
 }

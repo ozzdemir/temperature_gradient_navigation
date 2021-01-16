@@ -25,6 +25,7 @@ private:
     ros::Publisher neighborhoods_marker_pub_;
     ros::ServiceClient gz_sms_cli_;
     ros::Timer controller_timer_;
+    ros::Timer temperature_iterator_timer_;
 
     geometry_msgs::Point position_;
     nav_msgs::MapMetaData map_metadata_;
@@ -32,6 +33,7 @@ private:
     cv::Mat map_, temperature_map_, anglemap_, map_bw_, magnitudemap_;
     cv::Mat pixel2real_tf_mat_, real2pixel_tf_mat_;
     cv::Vec2i goal_position_;
+
     double cold_temperature_, hot_temperature_, map_yaw_angle_;
     bool visualization_;
     bool goal_initialized_;
@@ -45,7 +47,7 @@ private:
 
     void set_tf_mats(nav_msgs::MapMetaData metadata);
     void update_anglemap();
-    void temperature_iterator();
+    void temperature_iterator(const ros::TimerEvent &evt);
     double get_gradient_angle(cv::Vec2i q);
     double get_gradient_magnitude(cv::Vec2i q);
     double calc_distance(cv::Vec2i q1, cv::Vec2i q2);
@@ -54,5 +56,8 @@ private:
 
 public:
     temperature_gradient_navigation(ros::NodeHandle &nh, double hot_temperature, double cold_temperature, bool visualization = true);
+    const cv::Mat *get_map_ptr();
+    const cv::Mat *get_temperaturemap_ptr();
+    const cv::Mat *get_anglemap_ptr();
 };
 #endif // TEMPERATURE_GRADIENT_NAVIGATION_H_
