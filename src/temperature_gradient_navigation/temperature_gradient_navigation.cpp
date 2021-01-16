@@ -28,24 +28,24 @@ void temperature_gradient_navigation::map_cb(const nav_msgs::OccupancyGridConstP
     map_metadata_ = msg->info;
     int size_x = msg->info.width;
     int size_y = msg->info.height;
-    cv::Mat temp_map = cv::Mat(size_y, size_x, CV_8S, (void *)msg->data.data());
-    auto unknowns_mask = temp_map == -1;
-    auto occupied_mask = (temp_map > 50) & (~unknowns_mask);
-    auto empty_mask = (temp_map < 10) & (~unknowns_mask);
+    cv::Mat map = cv::Mat(size_y, size_x, CV_8S, (void *)msg->data.data());
+    auto unknowns_mask = map == -1;
+    auto occupied_mask = (map > 50) & (~unknowns_mask);
+    auto empty_mask = (map < 10) & (~unknowns_mask);
 
-    temp_map.convertTo(temp_map, CV_8U);
-    temp_map.setTo(255, empty_mask);
-    temp_map.setTo(0, occupied_mask);
-    temp_map.copyTo(map_);
+    map.convertTo(map, CV_8U);
+    map.setTo(255, empty_mask);
+    map.setTo(0, occupied_mask);
+    map.copyTo(map_);
     if (!temperature_map_initialized)
     {
         temperature_map_initialized = true;
         temperature_map_ = cv::Mat(size_y, size_x, CV_64F, hot_temperature_);
-        temperature_map_.setTo(0, empty_mask);
+        //temperature_map_.setTo(0, empty_mask);
     }
     set_tf_mats(map_metadata_); // Set coordinate transform matrices
-    //ROS_INFO("First one %d, %lf",temp_map.channels(), map_yaw);
-    //cv::imshow("sda", temp_map);
+    //ROS_INFO("First one %d, %lf",map.channels(), map_yaw);
+    //cv::imshow("sda", map);
     //cv::waitKey(0);
 }
 
@@ -131,8 +131,11 @@ void temperature_gradient_navigation::temperature_iterator(const ros::TimerEvent
     {
         temperature_map_.forEach<double>([&](double &p, const int *px) -> void {
             double val = map_.at<unsigned char>(px[0], px[1]);
-            //if ((px[0] != goal_position_(1)) && (px[1] != goal_position_(0)))
-            //{
+            if ((px[0] == goal_position_(1)) && (px[1] == goal_position_(0)))
+            {
+            }
+            else
+            {           
                 if ((val != 0)) // Meaning that pixel is not on object
                 {
                     p = (temperature_map_.at<double>(px[0] + 1, px[1]) +
@@ -141,7 +144,7 @@ void temperature_gradient_navigation::temperature_iterator(const ros::TimerEvent
                          temperature_map_.at<double>(px[0], px[1] - 1)) /
                         4.0;
                 }
-            //}
+            }
         });
     }
     std::cout << evt.current_real - evt.last_real << std::endl;
