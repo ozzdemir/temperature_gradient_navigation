@@ -39,12 +39,8 @@ void temperature_gradient_navigation::map_cb(const nav_msgs::OccupancyGridConstP
         //std::cout << map_ << std::endl;
         temperature_map_initialized = true;
         temperature_map_ = cv::Mat(size_y, size_x, CV_64F, hot_temperature_);
-        //temperature_map_.setTo(0, empty_mask);
     }
     set_tf_mats(map_metadata_); // Set coordinate transform matrices
-    //ROS_INFO("First one %d, %lf",map.channels(), map_yaw);
-    //cv::imshow("sda", map);
-    //cv::waitKey(0);
 }
 
 void temperature_gradient_navigation::controller_cb(const ros::TimerEvent &evt)

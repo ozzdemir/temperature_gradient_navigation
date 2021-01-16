@@ -12,7 +12,7 @@ int main(int argc, char **argv)
   // Taking parameters
 
   // Initializing temperature_gradient_navigation object
-  double hot_temperature = 1e3;
+  double hot_temperature = 1e6;
   temperature_gradient_navigation planner(nh, hot_temperature, -hot_temperature, true);
   // Publish temperature map
 
@@ -24,8 +24,11 @@ int main(int argc, char **argv)
   // Periodically publish map
   ros::Timer map_publishing_timer = nh.createTimer(ros::Duration(0.1), [&](const ros::TimerEvent &evt) {
     cv::Mat temperature_map_downscaled = cv::Mat(temperature_map_source->size(), CV_8UC1);
+    cv::Mat temperature_map_downscaled_flipped = cv::Mat(temperature_map_source->size(), CV_8UC1);
     temperature_map_source->convertTo(temperature_map_downscaled, CV_8UC1, 127.5 / hot_temperature, 127.5);
-    temperature_map_ptr->image = temperature_map_downscaled;
+    // Publishes image is reversed due to unknown reason, flip it to make it parallell to the occupancy grid.
+    cv::flip(temperature_map_downscaled, temperature_map_downscaled_flipped, 0); 
+    temperature_map_ptr->image = temperature_map_downscaled_flipped;
     temperature_map_ptr->encoding = "mono8";
     temperature_map_ptr->header.stamp = ros::Time::now();
     temperature_map_ptr->header.frame_id = "temperature_map";
