@@ -71,6 +71,7 @@ private:
 public:
     temperature_gradient_navigation(ros::NodeHandle &nh, double hot_temperature, double cold_temperature, bool use_offline_map = true, bool visualization = true);
     int iterate_algorithm();
+    const nav_msgs::MapMetaData *get_map_metadata();
     const cv::Mat *get_map_ptr();
     const cv::Mat *get_temperaturemap_ptr();
     const cv::Mat *get_anglemap_ptr();

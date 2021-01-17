@@ -25,7 +25,7 @@ int main(int argc, char **argv)
   const cv::Mat *temperature_map_source = planner.get_temperaturemap_ptr();
   cv_bridge::CvImagePtr temperature_map_ptr(new cv_bridge::CvImage);
   ros::Publisher execution_time_visualization_pub = nh.advertise<visualization_msgs::Marker>("/visualization/execution_time", 1, true);
-
+  ros::Publisher costmap_pub = nh.advertise<nav_msgs::OccupancyGrid>("/temperature_costmap",1,true);
   // Periodically publish map
   ros::Timer map_publishing_timer = nh.createTimer(ros::Duration(0.1), [&](const ros::TimerEvent &evt) {
     cv::Mat temperature_map_downscaled = cv::Mat(temperature_map_source->size(), CV_8UC1);
@@ -40,6 +40,15 @@ int main(int argc, char **argv)
     temperature_map_ptr->header.frame_id = "temperature_map";
     temperature_map_pub.publish(temperature_map_ptr->toImageMsg());
 
+    // Publish temperature costmap
+    nav_msgs::OccupancyGrid costmap_msg;
+    cv::Mat temporary_mat = temperature_map_downscaled * 100/255;
+    costmap_msg.info = *planner.get_map_metadata();
+    std::vector<int8_t> costmap_data(reinterpret_cast<int8_t*>(temporary_mat.data), reinterpret_cast<int8_t*>(temporary_mat.data + costmap_msg.info.height*costmap_msg.info.width));
+    costmap_msg.data = costmap_data;
+    costmap_pub.publish(costmap_msg);
+
+    // Publish state marker
     visualization_msgs::Marker marker;
     marker.header.frame_id = "map";
     marker.header.stamp = stamp;

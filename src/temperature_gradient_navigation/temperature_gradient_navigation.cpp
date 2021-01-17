@@ -234,6 +234,11 @@ int temperature_gradient_navigation::iterate_algorithm()
     }
 }
 
+const nav_msgs::MapMetaData *temperature_gradient_navigation::get_map_metadata()
+{
+    return &map_metadata_;
+}
+
 double temperature_gradient_navigation::max_diff()
 {
     static double max_diff, min_diff;
