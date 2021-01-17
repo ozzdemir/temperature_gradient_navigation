@@ -16,6 +16,7 @@ int main(int argc, char **argv)
   // Initializing temperature_gradient_navigation object
   double hot_temperature = 1e6;
   int64_t algorithm_runtime;
+  int algorithm_ret=1;
   temperature_gradient_navigation planner(nh, hot_temperature, -hot_temperature, false, true);
 
   // Publish temperature map
@@ -46,7 +47,7 @@ int main(int argc, char **argv)
     marker.id = 0;
     marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
     marker.action = visualization_msgs::Marker::ADD;
-    marker.text = std::to_string(algorithm_runtime) + " microseconds";
+    marker.text = std::to_string(algorithm_runtime) + " microseconds, state: " + std::to_string(algorithm_ret);
     marker.pose.position.y = 6;
     marker.scale.z = 1.0;
     marker.color.a = 1.0;
@@ -54,7 +55,6 @@ int main(int argc, char **argv)
     execution_time_visualization_pub.publish(marker);
   });
   ros::Rate r(500);
-  int algorithm_ret=1;
   while (nh.ok())
   {
     ros::spinOnce();

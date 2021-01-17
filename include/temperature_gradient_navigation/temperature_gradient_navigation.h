@@ -56,11 +56,10 @@ private:
     void controller_cb(const ros::TimerEvent &evt);
     void initialpose_cb(const geometry_msgs::PoseWithCovarianceStamped &msg);
     void goalpose_cb(const geometry_msgs::PoseStamped &msg);
+    void update_gradient(const ros::TimerEvent &evt);
 
     void set_tf_mats(nav_msgs::MapMetaData metadata);
-    void update_gradient(const ros::TimerEvent &evt);
     void update_temperatures();
-    void temperature_iterator(const ros::TimerEvent &evt);
     double get_gradient_angle(cv::Vec2i q);
     double get_gradient_magnitude(cv::Vec2i q);
     double calc_distance(cv::Vec2i q1, cv::Vec2i q2);

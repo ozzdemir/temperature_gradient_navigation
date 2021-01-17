@@ -90,9 +90,13 @@ void temperature_gradient_navigation::controller_cb(const ros::TimerEvent &evt)
         double mag = get_gradient_magnitude(cur_pt);
         sincos(angle, &sinx, &cosx);
         old_pt = cur_pt;
-        cmd_vel_msg.linear.x = -0.01 * dist * cosx; // Magnitude of gradient becomes so large at boundaries, thats why using another one.
+        cmd_vel_msg.linear.x = -0.01 * dist * cosx;
         cmd_vel_msg.linear.y = -0.01 * dist * sinx;
         cmd_vel_pub_.publish(cmd_vel_msg);
+        /*if(dist < 2)
+        {
+            algorithm_initialized_ = false;
+        }*/
     }
     else
     {
@@ -159,41 +163,6 @@ void temperature_gradient_navigation::update_gradient(const ros::TimerEvent &evt
         cv::Sobel(temperature_map_, dy, CV_64F, 0, 1, 1);
         cv::cartToPolar(dx, dy, magnitudemap_, anglemap_); // Anglemap later can be used in traversal
     }
-}
-
-void temperature_gradient_navigation::temperature_iterator(const ros::TimerEvent &evt)
-{
-    if (goal_initialized_)
-    {
-        temperature_map_.forEach<double>([&](double &p, const int *px) -> void {
-            double val = map_.at<unsigned char>(px[0], px[1]);
-            if ((px[0] == goal_position_(1)) && (px[1] == goal_position_(0)))
-            {
-            }
-            else if (px[0] == 0 | px[0] == map_metadata_.height - 1)
-            {
-            }
-            else if (px[1] == 0 | px[1] == map_metadata_.width - 1)
-            {
-            }
-            else
-            {
-                if (val != 255) // Meaning that pixel is not on object
-                {
-                    p = (temperature_map_.at<double>(px[0] + 1, px[1]) +
-                         temperature_map_.at<double>(px[0] - 1, px[1]) +
-                         temperature_map_.at<double>(px[0], px[1] + 1) +
-                         temperature_map_.at<double>(px[0], px[1] - 1)) /
-                        4.0;
-                }
-                else
-                {
-                    p = hot_temperature_;
-                }
-            }
-        });
-    }
-    //std::cout << evt.current_real - evt.last_real << std::endl;
 }
 
 void temperature_gradient_navigation::update_temperatures()
