@@ -1,7 +1,13 @@
 <?xml version="1.0"?>
 <launch>
-    <node name="temperature_gradient_navigation" pkg="temperature_gradient_navigation" type="temperature_gradient_navigation_node" respawn="false" output="screen">
+    <arg name="input_map" default="opti_map"/>
+    <arg name="input_map_file" value="$(find temperature_gradient_navigation)/config/$(arg input_map).pgm"/>
+    <arg name="input_map_metadata" value="$(find temperature_gradient_navigation)/config/$(arg input_map).yaml"/>
 
+    <!-- Start map_server with input_map-->
+    <node name="map_server_node" pkg="map_server" type="map_server" args="$(arg input_map_metadata)"  respawn="false" output="screen" > </node>
+
+    <node name="temperature_gradient_navigation_node" pkg="temperature_gradient_navigation" type="temperature_gradient_navigation_node" respawn="false" output="screen">
+        <param name="use_offline_map" value="true" />
     </node>
-    <node type="rviz" name="rviz" pkg="rviz" args="-d $(find temperature_gradient_navigation)/config/rviz.rviz" />
 </launch>
