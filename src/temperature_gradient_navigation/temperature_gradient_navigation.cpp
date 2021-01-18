@@ -85,24 +85,23 @@ void temperature_gradient_navigation::controller_cb(const ros::TimerEvent &evt)
         pixel_pos = (real2pixel_tf_mat_ * pos);
         cur_pt[0] = int(pixel_pos(0));
         cur_pt[1] = int(pixel_pos(1));
-        dist = calc_distance(cur_pt, goal_position_);
-        double angle = get_gradient_angle(cur_pt); //TODO: When agent goes out of scope, this results segfault
-        double mag = get_gradient_magnitude(cur_pt);
-        sincos(angle, &sinx, &cosx);
-        old_pt = cur_pt;
-        cmd_vel_msg.linear.x = -0.01 * dist * cosx;
-        cmd_vel_msg.linear.y = -0.01 * dist * sinx;
-        cmd_vel_pub_.publish(cmd_vel_msg);
-        /*if(dist < 2)
+        if (get_temperature(cur_pt) < hot_temperature_)
         {
-            algorithm_initialized_ = false;
-        }*/
-    }
-    else
-    {
-        cmd_vel_msg.linear.x = 0;
-        cmd_vel_msg.linear.y = 0;
-        cmd_vel_pub_.publish(cmd_vel_msg);
+            dist = calc_distance(cur_pt, goal_position_);
+            double angle = get_gradient_angle(cur_pt); //TODO: When agent goes out of scope, this results segfault
+            double mag = get_gradient_magnitude(cur_pt);
+            sincos(angle, &sinx, &cosx);
+            old_pt = cur_pt;
+            cmd_vel_msg.linear.x = -0.01 * dist * cosx;
+            cmd_vel_msg.linear.y = -0.01 * dist * sinx;
+            cmd_vel_pub_.publish(cmd_vel_msg);
+        }
+        else
+        {
+            cmd_vel_msg.linear.x = 0;
+            cmd_vel_msg.linear.y = 0;
+            cmd_vel_pub_.publish(cmd_vel_msg);
+        }
     }
 }
 
