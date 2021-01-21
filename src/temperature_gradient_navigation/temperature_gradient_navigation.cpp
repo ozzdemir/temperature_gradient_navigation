@@ -48,7 +48,6 @@ void temperature_gradient_navigation::odom_cb(const nav_msgs::Odometry &msg)
 void temperature_gradient_navigation::map_cb(const nav_msgs::OccupancyGrid &msg)
 {
     static bool temperature_map_initialized = false;
-    map_metadata_ = msg.info;
     int size_x = msg.info.width;
     int size_y = msg.info.height;
     cv::Mat map = cv::Mat(size_y, size_x, CV_8S, (void *)msg.data.data());
@@ -58,6 +57,7 @@ void temperature_gradient_navigation::map_cb(const nav_msgs::OccupancyGrid &msg)
     map.copyTo(map_);
     if (!temperature_map_initialized)
     {
+        map_metadata_ = msg.info;
         //std::cout << map_ << std::endl;
         temperature_map_initialized = true;
         temperature_map_ = cv::Mat(size_y, size_x, CV_64F, hot_temperature_);
@@ -71,7 +71,6 @@ void temperature_gradient_navigation::map_cb(const nav_msgs::OccupancyGrid &msg)
 void temperature_gradient_navigation::controller_cb(const ros::TimerEvent &evt)
 {
     static cv::Vec2i cur_pt;
-    static cv::Vec2i old_pt;
     static cv::Mat_<double> pos(3, 1);
     static cv::Mat_<double> pixel_pos(3, 1);
     double sinx, cosx;
@@ -90,10 +89,13 @@ void temperature_gradient_navigation::controller_cb(const ros::TimerEvent &evt)
             dist = calc_distance(cur_pt, goal_position_);
             double angle = get_gradient_angle(cur_pt); //TODO: When agent goes out of scope, this results segfault
             double mag = get_gradient_magnitude(cur_pt);
+
             sincos(angle, &sinx, &cosx);
-            old_pt = cur_pt;
-            cmd_vel_msg.linear.x = -0.01 * dist * cosx;
-            cmd_vel_msg.linear.y = -0.01 * dist * sinx;
+
+            double base_velocity = dist;
+            clip(base_velocity, 0, 0.5);
+            cmd_vel_msg.linear.x = -base_velocity * cosx;
+            cmd_vel_msg.linear.y = -base_velocity * sinx;
             cmd_vel_pub_.publish(cmd_vel_msg);
         }
         else
@@ -258,7 +260,7 @@ double temperature_gradient_navigation::get_gradient_magnitude(cv::Vec2i q)
 
 double temperature_gradient_navigation::calc_distance(cv::Vec2i q1, cv::Vec2i q2)
 {
-    double distance = cv::norm(q1 - q2);
+    double distance = cv::norm(q1 - q2) * map_metadata_.resolution;
     return distance;
 }
 
@@ -297,4 +299,9 @@ const cv::Mat *temperature_gradient_navigation::get_temperaturemap_ptr()
 const cv::Mat *temperature_gradient_navigation::get_anglemap_ptr()
 {
     return &anglemap_;
+}
+
+void temperature_gradient_navigation::clip(double &n, double lower, double upper)
+{
+    n = std::max(lower, std::min(n, upper));
 }

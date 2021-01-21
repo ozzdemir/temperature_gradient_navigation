@@ -67,6 +67,7 @@ private:
     bool gz_set_position(double x, double y);
     double max_diff();
     double get_temperature(cv::Vec2i q);
+    void clip(double &n, double lower, double upper);
 
 public:
     temperature_gradient_navigation(ros::NodeHandle &nh, double hot_temperature, double cold_temperature, bool use_offline_map = true, bool visualization = true);

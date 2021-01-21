@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="input_map" default="opti_map"/>
+    <arg name="input_map_file" value="$(find temperature_gradient_navigation)/config/$(arg input_map).pgm"/>
+    <arg name="input_map_metadata" value="$(find temperature_gradient_navigation)/config/$(arg input_map).yaml"/>
+    
+    <node name="set_initial_pos" pkg="rosservice" type="rosservice" args="call --wait /gazebo/set_model_state
+     'model_state:
+      { model_name: 'agent',
+        pose: {
+            position: {x: 0.0, y: 0.0, z: 0.05},
+            orientation: {z: 0.0, y: 0.0, z: 0.0, w: 1.0},
+            },
+        twist: {
+            linear: {x: 0.0, y: 0.0, z: 0.0},
+            angular: {x: 0.0, y: 0.0, z: 0.0}
+            },
+        reference_frame: 'map'
+      }'"
+    />
+
+    <include file="$(find temperature_gradient_navigation)/launch/turtlebot3_gmapping.launch"/>
+    <node name="temperature_gradient_navigation_node" pkg="temperature_gradient_navigation" type="temperature_gradient_navigation_node" respawn="false" output="screen">
+        <param name="use_offline_map" value="false" />
+    </node>
+</launch>
