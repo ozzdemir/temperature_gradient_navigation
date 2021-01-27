@@ -18,6 +18,10 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(OpenCV REQUIRED)
+add_service_files(FILES
+        traverse.srv
+)
+generate_messages()
 
 catkin_package(
     INCLUDE_DIRS

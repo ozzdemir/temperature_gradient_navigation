@@ -17,7 +17,7 @@ int main(int argc, char **argv)
   double hot_temperature = 1e6;
   int64_t algorithm_runtime;
   int algorithm_ret=1;
-  temperature_gradient_navigation planner(nh, hot_temperature, -hot_temperature, false, true);
+  temperature_gradient_navigation_ planner(nh, hot_temperature, -hot_temperature, false, true);
 
   // Publish temperature map
   image_transport::ImageTransport it(nh);
