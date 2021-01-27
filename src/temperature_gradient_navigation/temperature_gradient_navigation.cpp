@@ -120,6 +120,7 @@ void temperature_gradient_navigation::initialpose_cb(const geometry_msgs::PoseWi
     start_position_(1) = int(pixel_pos(1));
     start_initialized_ = true;
     std::cout << temperature_map_.at<double>(int(pixel_pos(1)), int(pixel_pos(0))) << std::endl;
+    traverse_ideal(start_position_);
 }
 
 void temperature_gradient_navigation::goalpose_cb(const geometry_msgs::PoseStamped &msg)
@@ -144,8 +145,8 @@ void temperature_gradient_navigation::goalpose_cb(const geometry_msgs::PoseStamp
 
 void temperature_gradient_navigation::set_tf_mats(nav_msgs::MapMetaData metadata)
 { // TODO: set matrices such that it is universal?
-    double pixel2real_mat_elements[9] = {map_metadata_.resolution, 0, -map_metadata_.origin.position.x,
-                                         0, -map_metadata_.resolution, map_metadata_.origin.position.y,
+    double pixel2real_mat_elements[9] = {map_metadata_.resolution, 0, map_metadata_.origin.position.x,
+                                         0, map_metadata_.resolution, map_metadata_.origin.position.y,
                                          0, 0, 1};
     double real2pixel_mat_elements[9] = {1 / map_metadata_.resolution, 0, -map_metadata_.origin.position.x / map_metadata_.resolution,
                                          0, 1 / map_metadata_.resolution, -map_metadata_.origin.position.y / map_metadata_.resolution,
@@ -233,6 +234,71 @@ int temperature_gradient_navigation::iterate_algorithm()
     {
         return state_initializing;
     }
+}
+
+bool temperature_gradient_navigation::traverse_ideal(cv::Vec2i qstart)
+{
+    static ros::Publisher trajectory_marker_pub = nh_.advertise<visualization_msgs::Marker>("/visualization/trajecory_ideal", 1, true);
+    cv::Vec2i cur_pt = qstart;
+    cv::Vec2i old_pt = cur_pt;
+    std::vector<cv::Vec2i> trajectory;
+    double sinx, cosx;
+    bool success;
+
+    try
+    {
+        for (int i = 0; i < 1000; i++)
+        {
+            trajectory.push_back(cur_pt);
+            double angle = get_gradient_angle(cur_pt);
+            sincos(angle, &sinx, &cosx);
+            old_pt = cur_pt;
+
+            cur_pt[0] -= int(5 * cosx);
+            cur_pt[1] -= int(5 * sinx);
+            if (calc_distance(cur_pt, goal_position_) < 0.05)
+            {
+                success = true;
+                break;
+            }
+        }
+    }
+    catch (std::exception &e)
+    {
+        std::cout << e.what() << std::endl;
+    }
+    // Publish state marker
+    visualization_msgs::Marker marker;
+    geometry_msgs::Point tmp_pt;
+    static cv::Mat_<double> pos(3, 1);
+    static cv::Mat_<double> pixel_pos(3, 1);
+    
+    marker.header.frame_id = "map";
+    marker.header.stamp = ros::Time::now();
+    marker.ns = "trajectory_ideal";
+    marker.id = 0;
+    marker.type = visualization_msgs::Marker::LINE_STRIP;
+    marker.action = visualization_msgs::Marker::ADD;
+    marker.pose.position.x = 0.0;
+    marker.pose.position.y = 0.0;
+    marker.pose.position.z = -0.05;
+    marker.pose.orientation.w = 1.0;
+    marker.scale.x = 0.1;
+    marker.color.a = 1.0;
+    marker.color.g = 1.0;
+    for (auto i = trajectory.begin(); i != trajectory.end(); ++i)
+    {
+        pixel_pos(0) = (*i)(0);
+        pixel_pos(1) = (*i)(1);
+        pixel_pos(2) = 1.0;
+        pos = (pixel2real_tf_mat_ * pixel_pos);
+        tmp_pt.x = pos(0);
+        tmp_pt.y = pos(1);
+        marker.points.push_back(tmp_pt);
+        std::cout << (*i)(0) << std::endl;
+    }
+    trajectory_marker_pub.publish(marker);
+    return success;
 }
 
 const nav_msgs::MapMetaData *temperature_gradient_navigation::get_map_metadata()

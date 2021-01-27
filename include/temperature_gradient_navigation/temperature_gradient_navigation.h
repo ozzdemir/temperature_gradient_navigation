@@ -12,6 +12,8 @@
 #include "geometry_msgs/Pose.h"
 #include "geometry_msgs/Point.h"
 #include "visualization_msgs/MarkerArray.h"
+#include "visualization_msgs/Marker.h"
+
 
 #include "opencv2/opencv.hpp"
 
@@ -60,6 +62,7 @@ private:
 
     void set_tf_mats(nav_msgs::MapMetaData metadata);
     void update_temperatures();
+    bool traverse_ideal(cv::Vec2i qstart);
     double get_gradient_angle(cv::Vec2i q);
     double get_gradient_magnitude(cv::Vec2i q);
     double calc_distance(cv::Vec2i q1, cv::Vec2i q2);
