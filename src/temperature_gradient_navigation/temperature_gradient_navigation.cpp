@@ -239,9 +239,12 @@ int temperature_gradient_navigation::iterate_algorithm()
 bool temperature_gradient_navigation::traverse_ideal(cv::Vec2i qstart)
 {
     static ros::Publisher trajectory_marker_pub = nh_.advertise<visualization_msgs::Marker>("/visualization/trajecory_ideal", 1, true);
+    cv::Vec2d cur_pos;
+    cur_pos(0) = qstart(0);
+    cur_pos(1) = qstart(1);
     cv::Vec2i cur_pt = qstart;
     cv::Vec2i old_pt = cur_pt;
-    std::vector<cv::Vec2i> trajectory;
+    std::vector<cv::Vec2d> trajectory;
     double sinx, cosx;
     bool success;
 
@@ -249,14 +252,17 @@ bool temperature_gradient_navigation::traverse_ideal(cv::Vec2i qstart)
     {
         for (int i = 0; i < 1000; i++)
         {
-            trajectory.push_back(cur_pt);
+            trajectory.push_back(cur_pos);
             double angle = get_gradient_angle(cur_pt);
             sincos(angle, &sinx, &cosx);
             old_pt = cur_pt;
 
-            cur_pt[0] -= int(5 * cosx);
-            cur_pt[1] -= int(5 * sinx);
-            if (calc_distance(cur_pt, goal_position_) < 0.05)
+            cur_pos[0] -= 0.5 * cosx;
+            cur_pos[1] -= 0.5 * sinx;
+
+            cur_pt[0] = int(cur_pos[0]);
+            cur_pt[1] = int(cur_pos[1]);
+            if (calc_distance(cur_pt, goal_position_) < 2 * map_metadata_.resolution)
             {
                 success = true;
                 break;
@@ -272,7 +278,7 @@ bool temperature_gradient_navigation::traverse_ideal(cv::Vec2i qstart)
     geometry_msgs::Point tmp_pt;
     static cv::Mat_<double> pos(3, 1);
     static cv::Mat_<double> pixel_pos(3, 1);
-    
+
     marker.header.frame_id = "map";
     marker.header.stamp = ros::Time::now();
     marker.ns = "trajectory_ideal";
@@ -295,7 +301,7 @@ bool temperature_gradient_navigation::traverse_ideal(cv::Vec2i qstart)
         tmp_pt.x = pos(0);
         tmp_pt.y = pos(1);
         marker.points.push_back(tmp_pt);
-        std::cout << (*i)(0) << std::endl;
+        std::cout << *i << std::endl;
     }
     trajectory_marker_pub.publish(marker);
     return success;
