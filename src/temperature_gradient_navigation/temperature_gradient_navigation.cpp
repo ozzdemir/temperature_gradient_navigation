@@ -13,7 +13,8 @@ temperature_gradient_navigation_::temperature_gradient_navigation_(ros::NodeHand
     initialpose_subs_ = nh_.subscribe("/initialpose", 1, &temperature_gradient_navigation_::initialpose_cb, this);
     cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 1);
     gz_sms_cli_ = nh_.serviceClient<gazebo_msgs::SetModelState>("/gazebo/set_model_state");
-    traverse_srv_ = nh_.advertiseService("traverse", &temperature_gradient_navigation_::traverse_srv, this);
+    poll_trajectory_srv_ = nh_.advertiseService("/poll_trajectory", &temperature_gradient_navigation_::poll_trajectory_cb, this);
+    get_trajectory_srv_ = nh_.advertiseService("/get_trajectory", &temperature_gradient_navigation_::get_trajectory_cb, this);
 
     visualization_ = visualization;
 
@@ -49,7 +50,6 @@ void temperature_gradient_navigation_::odom_cb(const nav_msgs::Odometry &msg)
 
 void temperature_gradient_navigation_::map_cb(const nav_msgs::OccupancyGrid &msg)
 {
-    static bool temperature_map_initialized = false;
     int size_x = msg.info.width;
     int size_y = msg.info.height;
     cv::Mat map = cv::Mat(size_y, size_x, CV_8S, (void *)msg.data.data());
@@ -57,11 +57,11 @@ void temperature_gradient_navigation_::map_cb(const nav_msgs::OccupancyGrid &msg
     map.convertTo(map, CV_8U);
     map.setTo(255, (map > 50));
     map.copyTo(map_);
-    if (!temperature_map_initialized)
+    if (!temperature_map_initialized_)
     {
         map_metadata_ = msg.info;
         //std::cout << map_ << std::endl;
-        temperature_map_initialized = true;
+        temperature_map_initialized_ = true;
         temperature_map_ = cv::Mat(size_y, size_x, CV_64F, hot_temperature_);
         //temperature_map_.setTo(0, map > 50);
         anglemap_ = cv::Mat(size_y, size_x, CV_64F, 1e-36);
@@ -145,27 +145,45 @@ void temperature_gradient_navigation_::goalpose_cb(const geometry_msgs::PoseStam
     std::cout << temperature_map_.at<double>(goal_position_(1), goal_position_(0)) << std::endl;
 }
 
-bool temperature_gradient_navigation_::traverse_srv(temperature_gradient_navigation::traverse::Request &req, temperature_gradient_navigation::traverse::Response &res)
+bool temperature_gradient_navigation_::poll_trajectory_cb(temperature_gradient_navigation::poll_trajectory::Request &req, temperature_gradient_navigation::poll_trajectory::Response &res)
 {
     goal_position_(0) = req.qgoal[0];
     goal_position_(1) = req.qgoal[1];
-    temperature_map_.at<double>(goal_position_(1), goal_position_(0)) = cold_temperature_;
+    start_position_(0) = req.qstart[0];
+    start_position_(1) = req.qstart[1];
+    if (req.reset_temperatures)
+    {
+        temperature_map_.setTo(hot_temperature_);
+        algorithm_initialized_ = false;
+    }
 
-    // Open csvfile for recording
-    std::ofstream myfile;
-    myfile.open(req.outfile_name);
-    myfile << "x, y\n";
+    if (temperature_map_initialized_)
+    {
+        temperature_map_.at<double>(goal_position_(1), goal_position_(0)) = cold_temperature_;
+        start_initialized_ = true;
+        goal_initialized_ = true;
+        double start_temperature = get_temperature(start_position_);
 
-    std::cout << "qgoal: " << goal_position_;
-    std::cout << " qstart: [" << req.qstart[0] << ", " << req.qstart[1] << "]" << std::endl;
-    auto trajectory = traverse_ideal({req.qstart[0], req.qstart[1]});
+        std::cout << "qgoal: " << goal_position_;
+        std::cout << " qstart: [" << req.qstart[0] << ", " << req.qstart[1] << "]" << std::endl;
+        std::cout << "start temperature: " << start_temperature << std::endl;
+
+        res.ready = start_temperature < hot_temperature_;
+    }
+    else
+    {
+        res.ready = false;
+    }
+    return true;
+}
+bool temperature_gradient_navigation_::get_trajectory_cb(temperature_gradient_navigation::get_trajectory::Request &req, temperature_gradient_navigation::get_trajectory::Response &res)
+{
+    auto trajectory = traverse_ideal(start_position_);
     for (auto i = trajectory.begin(); i != trajectory.end(); ++i)
     {
         res.trajectory_x.push_back((*i)(0));
         res.trajectory_y.push_back((*i)(1));
-        myfile << (*i)(0) << ", " << (*i)(1) << std::endl;
     }
-    myfile.close();
 
     return true;
 }

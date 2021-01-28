@@ -19,7 +19,8 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(OpenCV REQUIRED)
 add_service_files(FILES
-        traverse.srv
+        poll_trajectory.srv
+        get_trajectory.srv
 )
 generate_messages()
 

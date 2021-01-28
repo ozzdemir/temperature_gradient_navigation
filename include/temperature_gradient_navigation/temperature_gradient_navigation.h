@@ -13,7 +13,9 @@
 #include "geometry_msgs/Point.h"
 #include "visualization_msgs/MarkerArray.h"
 #include "visualization_msgs/Marker.h"
-#include "temperature_gradient_navigation/traverse.h"
+#include "temperature_gradient_navigation/poll_trajectory.h"
+#include "temperature_gradient_navigation/get_trajectory.h"
+
 
 
 #include "opencv2/opencv.hpp"
@@ -38,7 +40,8 @@ private:
     ros::Publisher neighborhoods_marker_pub_;
     ros::ServiceClient gz_sms_cli_;
     ros::ServiceClient mapserver_cli_;
-    ros::ServiceServer traverse_srv_;
+    ros::ServiceServer poll_trajectory_srv_;
+    ros::ServiceServer get_trajectory_srv_;
     ros::Timer controller_timer_;
     ros::Timer gradient_updating_timer_;
 
@@ -52,7 +55,7 @@ private:
 
     double cold_temperature_, hot_temperature_, map_yaw_angle_;
     bool visualization_;
-    bool goal_initialized_, start_initialized_, algorithm_initialized_;
+    bool goal_initialized_, start_initialized_, algorithm_initialized_, temperature_map_initialized_;
 
     void odom_cb(const nav_msgs::Odometry &msg);
     void map_cb(const nav_msgs::OccupancyGrid &msg);
@@ -60,7 +63,8 @@ private:
     void controller_cb(const ros::TimerEvent &evt);
     void initialpose_cb(const geometry_msgs::PoseWithCovarianceStamped &msg);
     void goalpose_cb(const geometry_msgs::PoseStamped &msg);
-    bool traverse_srv(temperature_gradient_navigation::traverse::Request &req, temperature_gradient_navigation::traverse::Response &res);
+    bool poll_trajectory_cb(temperature_gradient_navigation::poll_trajectory::Request &req, temperature_gradient_navigation::poll_trajectory::Response &res);
+    bool get_trajectory_cb(temperature_gradient_navigation::get_trajectory::Request &req, temperature_gradient_navigation::get_trajectory::Response &res);
     void update_gradient(const ros::TimerEvent &evt);
 
     void set_tf_mats(nav_msgs::MapMetaData metadata);

@@ -1,6 +1,0 @@
-int64[2] qstart
-int64[2] qgoal
-string outfile_name
----
-float64[] trajectory_x
-float64[] trajectory_y
