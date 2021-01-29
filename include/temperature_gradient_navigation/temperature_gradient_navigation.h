@@ -54,6 +54,7 @@ private:
     cv::Vec2i start_position_;
 
     double cold_temperature_, hot_temperature_, map_yaw_angle_;
+    int count_;
     bool visualization_;
     bool goal_initialized_, start_initialized_, algorithm_initialized_, temperature_map_initialized_;
 

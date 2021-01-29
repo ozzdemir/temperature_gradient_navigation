@@ -5,6 +5,9 @@ temperature_gradient_navigation_::temperature_gradient_navigation_(ros::NodeHand
     nh_ = nh;
     hot_temperature_ = hot_temperature;
     cold_temperature_ = cold_temperature;
+    visualization_ = visualization;
+    temperature_map_initialized_ = goal_initialized_ = start_initialized_ = algorithm_initialized_ = false;
+
     controller_timer_ = nh_.createTimer(ros::Duration(0.01), &temperature_gradient_navigation_::controller_cb, this);
     gradient_updating_timer_ = nh_.createTimer(ros::Duration(0.1), &temperature_gradient_navigation_::update_gradient, this);
 
@@ -15,8 +18,6 @@ temperature_gradient_navigation_::temperature_gradient_navigation_(ros::NodeHand
     gz_sms_cli_ = nh_.serviceClient<gazebo_msgs::SetModelState>("/gazebo/set_model_state");
     poll_trajectory_srv_ = nh_.advertiseService("/poll_trajectory", &temperature_gradient_navigation_::poll_trajectory_cb, this);
     get_trajectory_srv_ = nh_.advertiseService("/get_trajectory", &temperature_gradient_navigation_::get_trajectory_cb, this);
-
-    visualization_ = visualization;
 
     if (use_offline_map)
     {
@@ -39,8 +40,6 @@ temperature_gradient_navigation_::temperature_gradient_navigation_(ros::NodeHand
     {
         map_subs_ = nh_.subscribe("/map", 1, &temperature_gradient_navigation_::map_cb, this);
     }
-
-    //temperature_map_marker_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("/neighborhoods_marker", 1, true);
 }
 
 void temperature_gradient_navigation_::odom_cb(const nav_msgs::Odometry &msg)
@@ -140,6 +139,7 @@ void temperature_gradient_navigation_::goalpose_cb(const geometry_msgs::PoseStam
     // Re-initialize temperature map
     temperature_map_.setTo(hot_temperature_);
     algorithm_initialized_ = false;
+    count_ = 0;
     std::cout << goal_position_ << std::endl;
     temperature_map_.at<double>(goal_position_(1), goal_position_(0)) = cold_temperature_;
     std::cout << temperature_map_.at<double>(goal_position_(1), goal_position_(0)) << std::endl;
@@ -198,7 +198,6 @@ void temperature_gradient_navigation_::set_tf_mats(nav_msgs::MapMetaData metadat
                                          0, 0, 1};
     pixel2real_tf_mat_ = cv::Mat(3, 3, CV_64F, pixel2real_mat_elements).clone();
     real2pixel_tf_mat_ = cv::Mat(3, 3, CV_64F, real2pixel_mat_elements).clone();
-    map_yaw_angle_ = tf::getYaw(map_metadata_.origin.orientation);
 }
 
 void temperature_gradient_navigation_::update_gradient(const ros::TimerEvent &evt)
@@ -247,17 +246,16 @@ void temperature_gradient_navigation_::update_temperatures()
 int temperature_gradient_navigation_::iterate_algorithm()
 {
     static double epsilon = 30;
-    static int N = 1000;
+    static int N = 10000;
     if (goal_initialized_)
     {
         if (!algorithm_initialized_)
         {
-            static int count = 0;
             if (epsilon > max_diff())
             {
                 update_temperatures();
-                count++;
-                if ((count >= N) && (get_temperature(start_position_) == hot_temperature_))
+                count_++;
+                if ((count_ >= N) && (get_temperature(start_position_) == hot_temperature_))
                 {
                     return state_no_path;
                 }

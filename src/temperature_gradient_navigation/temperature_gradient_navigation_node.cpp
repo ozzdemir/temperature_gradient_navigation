@@ -20,8 +20,6 @@ int main(int argc, char **argv)
   temperature_gradient_navigation_ planner(nh, hot_temperature, -hot_temperature, false, true);
 
   // Publish temperature map
-  image_transport::ImageTransport it(nh);
-  image_transport::Publisher temperature_map_pub = it.advertise("temperature_map", 1, true);
   const cv::Mat *temperature_map_source = planner.get_temperaturemap_ptr();
   cv_bridge::CvImagePtr temperature_map_ptr(new cv_bridge::CvImage);
   ros::Publisher execution_time_visualization_pub = nh.advertise<visualization_msgs::Marker>("/visualization/execution_time", 1, true);
@@ -34,11 +32,6 @@ int main(int argc, char **argv)
     // Publishes image is reversed due to unknown reason, flip it to make it parallell to the occupancy grid.
     cv::flip(temperature_map_downscaled, temperature_map_downscaled_flipped, 0);
     auto stamp = ros::Time::now();
-    temperature_map_ptr->image = temperature_map_downscaled_flipped;
-    temperature_map_ptr->encoding = "mono8";
-    temperature_map_ptr->header.stamp = stamp;
-    temperature_map_ptr->header.frame_id = "temperature_map";
-    temperature_map_pub.publish(temperature_map_ptr->toImageMsg());
 
     // Publish temperature costmap
     nav_msgs::OccupancyGrid costmap_msg;
