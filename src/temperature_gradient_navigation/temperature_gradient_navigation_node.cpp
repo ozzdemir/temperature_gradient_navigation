@@ -12,18 +12,18 @@ int main(int argc, char **argv)
 
   // Taking parameters
   bool use_offline_map_param;
-  nh.param<bool>("use_offline_map",use_offline_map_param,true);
+  nh.param<bool>("use_offline_map", use_offline_map_param, true);
   // Initializing temperature_gradient_navigation object
   double hot_temperature = 1e6;
   int64_t algorithm_runtime;
-  int algorithm_ret=1;
-  temperature_gradient_navigation_ planner(nh, hot_temperature, -hot_temperature, false, true);
+  int algorithm_ret = 1;
+  temperature_gradient_navigation_ planner(nh, hot_temperature, -hot_temperature, use_offline_map_param, true);
 
   // Publish temperature map
   const cv::Mat *temperature_map_source = planner.get_temperaturemap_ptr();
   cv_bridge::CvImagePtr temperature_map_ptr(new cv_bridge::CvImage);
   ros::Publisher execution_time_visualization_pub = nh.advertise<visualization_msgs::Marker>("/visualization/execution_time", 1, true);
-  ros::Publisher costmap_pub = nh.advertise<nav_msgs::OccupancyGrid>("/temperature_costmap",1,true);
+  ros::Publisher costmap_pub = nh.advertise<nav_msgs::OccupancyGrid>("/temperature_costmap", 1, true);
   // Periodically publish map
   ros::Timer map_publishing_timer = nh.createTimer(ros::Duration(0.1), [&](const ros::TimerEvent &evt) {
     cv::Mat temperature_map_downscaled = cv::Mat(temperature_map_source->size(), CV_8UC1);
@@ -35,9 +35,9 @@ int main(int argc, char **argv)
 
     // Publish temperature costmap
     nav_msgs::OccupancyGrid costmap_msg;
-    cv::Mat temporary_mat = temperature_map_downscaled * 100/255;
+    cv::Mat temporary_mat = temperature_map_downscaled * 100 / 255;
     costmap_msg.info = *planner.get_map_metadata();
-    std::vector<int8_t> costmap_data(reinterpret_cast<int8_t*>(temporary_mat.data), reinterpret_cast<int8_t*>(temporary_mat.data + costmap_msg.info.height*costmap_msg.info.width));
+    std::vector<int8_t> costmap_data(reinterpret_cast<int8_t *>(temporary_mat.data), reinterpret_cast<int8_t *>(temporary_mat.data + costmap_msg.info.height * costmap_msg.info.width));
     costmap_msg.data = costmap_data;
     costmap_pub.publish(costmap_msg);
 
@@ -49,7 +49,7 @@ int main(int argc, char **argv)
     marker.id = 0;
     marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
     marker.action = visualization_msgs::Marker::ADD;
-    marker.text = std::to_string(algorithm_runtime) + " microseconds, state: " + std::to_string(algorithm_ret);
+    marker.text = std::to_string(algorithm_runtime) + " microseconds, state: " + std::to_string(algorithm_ret) + ", count: " + std::to_string(planner.count());
     marker.pose.position.y = 6;
     marker.scale.z = 1.0;
     marker.color.a = 1.0;
@@ -60,14 +60,10 @@ int main(int argc, char **argv)
   while (nh.ok())
   {
     ros::spinOnce();
-    if (algorithm_ret != -1) // -1 means no path exists
-    {
-      auto t1 = std::chrono::high_resolution_clock::now();
-      algorithm_ret = planner.iterate_algorithm();
-      auto t2 = std::chrono::high_resolution_clock::now();
-      algorithm_runtime = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-      //std::cout << algorithm_ret << std::endl;
-    }
+    auto t1 = std::chrono::high_resolution_clock::now();
+    algorithm_ret = planner.iterate_algorithm();
+    auto t2 = std::chrono::high_resolution_clock::now();
+    algorithm_runtime = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
     //r.sleep();
   }
   return 0;

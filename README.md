@@ -1,4 +1,17 @@
 # temperature_gradient_planner
 This repository contains ros node that implements continiously updated artificial temperature gradient based motion planner.
 
-#### Using ros service to call planner
+#### For using planner with matlab
+`rosrun temperature_adient_navigation temperature_gradient_navigation_node _use_offline_map:=true`
+
+#### For using planner with gazebo, online
+
+`roslaunch temperature_gradient_navigation load_map.launch input_map:=opti_map`
+`roslaunch temperature_gradient_navigation spawn_agent.launch `
+`roslaunch temperature_gradient_navigation temperature_gradient_navigation_online.launch`
+
+#### For using planner with gazebo, offline
+
+`roslaunch temperature_gradient_navigation load_map.launch input_map:=opti_map`
+`roslaunch temperature_gradient_navigation spawn_agent.launch `
+`roslaunch temperature_gradient_navigation temperature_gradient_navigation_offline.launch input_map:=opti_map`

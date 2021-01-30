@@ -16,16 +16,15 @@
 #include "temperature_gradient_navigation/poll_trajectory.h"
 #include "temperature_gradient_navigation/get_trajectory.h"
 
-
-
 #include "opencv2/opencv.hpp"
 
 enum algorithm_state
 {
     state_no_path = -1,
     state_goal_achieved = 0,
-    state_initializing = 1,
-    state_traversing = 2
+    state_waiting_goal = 1,
+    state_initializing = 2,
+    state_traversing = 3
 };
 
 class temperature_gradient_navigation_
@@ -53,10 +52,11 @@ private:
     cv::Vec2i goal_position_;
     cv::Vec2i start_position_;
 
-    double cold_temperature_, hot_temperature_, map_yaw_angle_;
-    int count_;
+    double cold_temperature_, hot_temperature_;
+    int N_, count_= 0;
     bool visualization_;
     bool goal_initialized_, start_initialized_, algorithm_initialized_, temperature_map_initialized_;
+    bool use_offline_map_, no_solution_;
 
     void odom_cb(const nav_msgs::Odometry &msg);
     void map_cb(const nav_msgs::OccupancyGrid &msg);
@@ -83,9 +83,11 @@ private:
 public:
     temperature_gradient_navigation_(ros::NodeHandle &nh, double hot_temperature, double cold_temperature, bool use_offline_map = true, bool visualization = true);
     int iterate_algorithm();
+    int count() const { return count_; }
     const nav_msgs::MapMetaData *get_map_metadata();
     const cv::Mat *get_map_ptr();
     const cv::Mat *get_temperaturemap_ptr();
     const cv::Mat *get_anglemap_ptr();
+
 };
 #endif // TEMPERATURE_GRADIENT_NAVIGATION_H_

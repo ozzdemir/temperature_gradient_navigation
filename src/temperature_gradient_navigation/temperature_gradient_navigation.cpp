@@ -6,7 +6,8 @@ temperature_gradient_navigation_::temperature_gradient_navigation_(ros::NodeHand
     hot_temperature_ = hot_temperature;
     cold_temperature_ = cold_temperature;
     visualization_ = visualization;
-    temperature_map_initialized_ = goal_initialized_ = start_initialized_ = algorithm_initialized_ = false;
+    temperature_map_initialized_ = goal_initialized_ = start_initialized_ = algorithm_initialized_ = no_solution_ = false;
+    use_offline_map_ = use_offline_map;
 
     controller_timer_ = nh_.createTimer(ros::Duration(0.01), &temperature_gradient_navigation_::controller_cb, this);
     gradient_updating_timer_ = nh_.createTimer(ros::Duration(0.1), &temperature_gradient_navigation_::update_gradient, this);
@@ -29,7 +30,6 @@ temperature_gradient_navigation_::temperature_gradient_navigation_(ros::NodeHand
         {
             mapserver_cli_.call(payload);
             map_cb(payload.response.map);
-            std::cout << payload.response.map.info.origin;
         }
         else
         {
@@ -44,13 +44,25 @@ temperature_gradient_navigation_::temperature_gradient_navigation_(ros::NodeHand
 
 void temperature_gradient_navigation_::odom_cb(const nav_msgs::Odometry &msg)
 {
+    static cv::Mat_<double> pos(3, 1);
+    static cv::Mat_<double> pixel_pos(3, 1);
     position_ = msg.pose.pose.position;
+    if (temperature_map_initialized_)
+    {
+        pos(0) = position_.x;
+        pos(1) = position_.y;
+        pos(2) = 1.0;
+        pixel_pos = (real2pixel_tf_mat_ * pos);
+        start_position_(0) = pixel_pos(0);
+        start_position_(1) = pixel_pos(1);
+    }
 }
 
 void temperature_gradient_navigation_::map_cb(const nav_msgs::OccupancyGrid &msg)
 {
     int size_x = msg.info.width;
     int size_y = msg.info.height;
+    N_ = size_x * size_y;
     cv::Mat map = cv::Mat(size_y, size_x, CV_8S, (void *)msg.data.data());
     map.setTo(25, (map == -1));
     map.convertTo(map, CV_8U);
@@ -106,6 +118,12 @@ void temperature_gradient_navigation_::controller_cb(const ros::TimerEvent &evt)
             cmd_vel_pub_.publish(cmd_vel_msg);
         }
     }
+    else
+    {
+        cmd_vel_msg.linear.x = 0;
+        cmd_vel_msg.linear.y = 0;
+        cmd_vel_pub_.publish(cmd_vel_msg);
+    }
 }
 
 void temperature_gradient_navigation_::initialpose_cb(const geometry_msgs::PoseWithCovarianceStamped &msg)
@@ -120,8 +138,24 @@ void temperature_gradient_navigation_::initialpose_cb(const geometry_msgs::PoseW
     start_position_(0) = int(pixel_pos(0));
     start_position_(1) = int(pixel_pos(1));
     start_initialized_ = true;
-    std::cout << temperature_map_.at<double>(int(pixel_pos(1)), int(pixel_pos(0))) << std::endl;
-    traverse_ideal(start_position_);
+    std::cout << "Start: " << start_position_ << std::endl;
+    // If offline map, check existence of solution via floodfill
+    if (use_offline_map_)
+    {
+        cv::Mat temporary_map;
+        map_.copyTo(temporary_map);
+        cv::floodFill(temporary_map, {goal_position_(0), goal_position_(1)}, 77); // 77 is magic number
+        if (temporary_map.at<char>(start_position_(1), start_position_(0)) != 77)
+        {
+            ROS_ERROR("No Solution exists from given starting point!");
+            no_solution_ = true;
+        }
+        else
+        {
+            no_solution_ = false;
+            traverse_ideal(start_position_);
+        }
+    }
 }
 
 void temperature_gradient_navigation_::goalpose_cb(const geometry_msgs::PoseStamped &msg)
@@ -140,9 +174,24 @@ void temperature_gradient_navigation_::goalpose_cb(const geometry_msgs::PoseStam
     temperature_map_.setTo(hot_temperature_);
     algorithm_initialized_ = false;
     count_ = 0;
-    std::cout << goal_position_ << std::endl;
+    std::cout << "Goal: " << goal_position_ << std::endl;
     temperature_map_.at<double>(goal_position_(1), goal_position_(0)) = cold_temperature_;
-    std::cout << temperature_map_.at<double>(goal_position_(1), goal_position_(0)) << std::endl;
+    // If offline map, check existence of solution via floodfill
+    if (use_offline_map_)
+    {
+        cv::Mat temporary_map;
+        map_.copyTo(temporary_map);
+        cv::floodFill(temporary_map, {goal_position_(0), goal_position_(1)}, 77); // 77 is magic number
+        if (temporary_map.at<char>(start_position_(1), start_position_(0)) != 77)
+        {
+            ROS_ERROR("No Solution exists to given goal!");
+            no_solution_ = true;
+        }
+        else
+        {
+            no_solution_ = false;
+        }
+    }
 }
 
 bool temperature_gradient_navigation_::poll_trajectory_cb(temperature_gradient_navigation::poll_trajectory::Request &req, temperature_gradient_navigation::poll_trajectory::Response &res)
@@ -155,6 +204,23 @@ bool temperature_gradient_navigation_::poll_trajectory_cb(temperature_gradient_n
     {
         temperature_map_.setTo(hot_temperature_);
         algorithm_initialized_ = false;
+        std::cout << "qgoal: " << goal_position_;
+        std::cout << " qstart: [" << req.qstart[0] << ", " << req.qstart[1] << "]" << std::endl;
+        // Check solution existence
+        cv::Mat temporary_map;
+        map_.copyTo(temporary_map);
+        cv::floodFill(temporary_map, {goal_position_(0), goal_position_(1)}, 77); // 77 is magic number
+        if (temporary_map.at<char>(start_position_(1), start_position_(0)) != 77)
+        {
+            ROS_ERROR("No Solution exists to given goal!");
+            no_solution_ = true;
+            res.solution_state = temperature_gradient_navigation::poll_trajectory::Response::NO_SOLUTION;
+            return true;
+        }
+        else
+        {
+            no_solution_ = false;
+        }
     }
 
     if (temperature_map_initialized_)
@@ -164,15 +230,19 @@ bool temperature_gradient_navigation_::poll_trajectory_cb(temperature_gradient_n
         goal_initialized_ = true;
         double start_temperature = get_temperature(start_position_);
 
-        std::cout << "qgoal: " << goal_position_;
-        std::cout << " qstart: [" << req.qstart[0] << ", " << req.qstart[1] << "]" << std::endl;
         std::cout << "start temperature: " << start_temperature << std::endl;
-
-        res.ready = start_temperature < hot_temperature_;
+        if (start_temperature < hot_temperature_)
+        {
+            res.solution_state = temperature_gradient_navigation::poll_trajectory::Response::READY;
+        }
+        else
+        {
+            res.solution_state = temperature_gradient_navigation::poll_trajectory::Response::NOT_READY;
+        }
     }
     else
     {
-        res.ready = false;
+        res.solution_state = temperature_gradient_navigation::poll_trajectory::Response::NOT_READY;
     }
     return true;
 }
@@ -245,17 +315,20 @@ void temperature_gradient_navigation_::update_temperatures()
 
 int temperature_gradient_navigation_::iterate_algorithm()
 {
-    static double epsilon = 30;
-    static int N = 10000;
+    static double epsilon = 1e-3;
     if (goal_initialized_)
     {
+        if (use_offline_map_ & no_solution_)
+        {
+            return state_no_path;
+        }
         if (!algorithm_initialized_)
         {
-            if (epsilon > max_diff())
+            count_++;
+            update_temperatures();
+            if (get_temperature(start_position_) == hot_temperature_)
             {
-                update_temperatures();
-                count_++;
-                if ((count_ >= N) && (get_temperature(start_position_) == hot_temperature_))
+                if (count_ >= N_)
                 {
                     return state_no_path;
                 }
@@ -263,6 +336,7 @@ int temperature_gradient_navigation_::iterate_algorithm()
             }
             else
             {
+                //get_temperature(start_position_) == hot_temperature_;
                 algorithm_initialized_ = true;
                 return state_traversing;
             }
@@ -275,7 +349,7 @@ int temperature_gradient_navigation_::iterate_algorithm()
     }
     else
     {
-        return state_initializing;
+        return state_waiting_goal;
     }
 }
 
@@ -316,36 +390,38 @@ std::vector<cv::Vec2d> temperature_gradient_navigation_::traverse_ideal(cv::Vec2
         {
             std::cout << e.what() << std::endl;
         }
-        // Publish state marker
         visualization_msgs::Marker marker;
         geometry_msgs::Point tmp_pt;
         static cv::Mat_<double> pos(3, 1);
         static cv::Mat_<double> pixel_pos(3, 1);
-
-        marker.header.frame_id = "map";
-        marker.header.stamp = ros::Time::now();
-        marker.ns = "trajectory_ideal";
-        marker.id = 0;
-        marker.type = visualization_msgs::Marker::LINE_STRIP;
-        marker.action = visualization_msgs::Marker::ADD;
-        marker.pose.position.x = 0.0;
-        marker.pose.position.y = 0.0;
-        marker.pose.position.z = -0.05;
-        marker.pose.orientation.w = 1.0;
-        marker.scale.x = 0.1;
-        marker.color.a = 1.0;
-        marker.color.g = 1.0;
-        for (auto i = trajectory.begin(); i != trajectory.end(); ++i)
+        if (!no_solution_)
         {
-            pixel_pos(0) = (*i)(0);
-            pixel_pos(1) = (*i)(1);
-            pixel_pos(2) = 1.0;
-            pos = (pixel2real_tf_mat_ * pixel_pos);
-            tmp_pt.x = pos(0);
-            tmp_pt.y = pos(1);
-            marker.points.push_back(tmp_pt);
+            // Publish state marker
+            marker.header.frame_id = "map";
+            marker.header.stamp = ros::Time::now();
+            marker.ns = "trajectory_ideal";
+            marker.id = 0;
+            marker.type = visualization_msgs::Marker::LINE_STRIP;
+            marker.action = visualization_msgs::Marker::ADD;
+            marker.pose.position.x = 0.0;
+            marker.pose.position.y = 0.0;
+            marker.pose.position.z = -0.05;
+            marker.pose.orientation.w = 1.0;
+            marker.scale.x = 0.1;
+            marker.color.a = 1.0;
+            marker.color.g = 1.0;
+            for (auto i = trajectory.begin(); i != trajectory.end(); ++i)
+            {
+                pixel_pos(0) = (*i)(0);
+                pixel_pos(1) = (*i)(1);
+                pixel_pos(2) = 1.0;
+                pos = (pixel2real_tf_mat_ * pixel_pos);
+                tmp_pt.x = pos(0);
+                tmp_pt.y = pos(1);
+                marker.points.push_back(tmp_pt);
+            }
+            trajectory_marker_pub.publish(marker);
         }
-        trajectory_marker_pub.publish(marker);
         return trajectory;
     }
 }
@@ -358,8 +434,12 @@ const nav_msgs::MapMetaData *temperature_gradient_navigation_::get_map_metadata(
 double temperature_gradient_navigation_::max_diff()
 {
     static double max_diff, min_diff;
+    static bool first_call = true;
     auto diff_mat = temperature_map_ - temperature_map_prev_;
+    diff_mat = cv::abs(diff_mat) / temperature_map_;
     cv::minMaxIdx(diff_mat, &min_diff, &max_diff);
+    std::cout << "maxdif: " << max_diff << std::endl;
+    std::cout << "mindiff: " << min_diff << std::endl;
     return max_diff;
 }
 
