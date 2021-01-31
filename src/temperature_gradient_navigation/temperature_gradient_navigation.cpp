@@ -204,6 +204,7 @@ bool temperature_gradient_navigation_::poll_trajectory_cb(temperature_gradient_n
     {
         temperature_map_.setTo(hot_temperature_);
         algorithm_initialized_ = false;
+        count_ = 0;
         std::cout << "qgoal: " << goal_position_;
         std::cout << " qstart: [" << req.qstart[0] << ", " << req.qstart[1] << "]" << std::endl;
         // Check solution existence
@@ -318,14 +319,14 @@ int temperature_gradient_navigation_::iterate_algorithm()
     static double epsilon = 1e-3;
     if (goal_initialized_)
     {
-        if (use_offline_map_ & no_solution_)
-        {
-            return state_no_path;
-        }
         if (!algorithm_initialized_)
         {
             count_++;
             update_temperatures();
+            if (use_offline_map_ & no_solution_)
+            {
+                return state_no_path;
+            }
             if (get_temperature(start_position_) == hot_temperature_)
             {
                 if (count_ >= N_)

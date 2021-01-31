@@ -3,10 +3,7 @@ Panels:
     Help Height: 0
     Name: Displays
     Property Tree Widget:
-      Expanded:
-        - /Map1/Status1
-        - /Odometry1/Shape1
-        - /temperature_costmap1/Status1
+      Expanded: ~
       Splitter Ratio: 0.6470588445663452
     Tree Height: 627
   - Class: rviz/Selection
@@ -27,7 +24,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: LaserScan
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -88,7 +85,7 @@ Visualization Manager:
       Axis: Z
       Channel Name: intensity
       Class: rviz/LaserScan
-      Color: 0; 255; 0
+      Color: 252; 233; 79
       Color Transformer: FlatColor
       Decay Time: 0
       Enabled: true
@@ -127,7 +124,7 @@ Visualization Manager:
           Value: true
         Value: false
       Enabled: true
-      Keep: 100
+      Keep: 500
       Name: Odometry
       Position Tolerance: 0.10000000149011612
       Shape:
@@ -229,4 +226,4 @@ Window Geometry:
     collapsed: true
   Width: 940
   X: 67
-  Y: 27
+  Y: 134
