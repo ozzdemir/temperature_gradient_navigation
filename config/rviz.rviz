@@ -60,6 +60,16 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
+        base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        base_scan:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
       Name: RobotModel
       Robot Description: robot_description
       TF Prefix: ""
@@ -160,10 +170,10 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /visualization/trajecory_ideal
+      Marker Topic: /visualization/trajectory_ideal
       Name: estimated_trajectory
       Namespaces:
-        {}
+        trajectory_ideal: true
       Queue Size: 100
       Value: true
   Enabled: true
@@ -226,4 +236,4 @@ Window Geometry:
     collapsed: true
   Width: 940
   X: 67
-  Y: 134
+  Y: 104

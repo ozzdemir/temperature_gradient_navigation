@@ -19,7 +19,7 @@
       }'"
     />
 
-    <include file="$(find temperature_gradient_navigation)/launch/turtlebot3_gmapping.launch"/>
+    <include file="$(find temperature_gradient_navigation)/launch/gmapping.launch"/>
     <node name="temperature_gradient_navigation_node" pkg="temperature_gradient_navigation" type="temperature_gradient_navigation_node" respawn="false" output="screen">
         <param name="use_offline_map" value="false" />
     </node>

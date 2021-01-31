@@ -356,7 +356,7 @@ int temperature_gradient_navigation_::iterate_algorithm()
 
 std::vector<cv::Vec2d> temperature_gradient_navigation_::traverse_ideal(cv::Vec2i qstart)
 {
-    static ros::Publisher trajectory_marker_pub = nh_.advertise<visualization_msgs::Marker>("/visualization/trajecory_ideal", 1, true);
+    static ros::Publisher trajectory_marker_pub = nh_.advertise<visualization_msgs::Marker>("/visualization/trajectory_ideal", 1, true);
     std::vector<cv::Vec2d> trajectory;
     cv::Vec2d cur_pos;
     cur_pos(0) = qstart(0);
