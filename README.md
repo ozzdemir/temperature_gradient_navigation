@@ -18,3 +18,7 @@ This repository contains ros node that implements continiously updated artificia
 `roslaunch temperature_gradient_navigation load_map.launch input_map:=opti_map`
 `roslaunch temperature_gradient_navigation spawn_agent.launch `
 `roslaunch temperature_gradient_navigation temperature_gradient_navigation_offline.launch input_map:=opti_map`
+
+#### Demos
+
+![Dynamic Map Demo](demo/temperature_field_planner_dynamic_map_demo.gif)
