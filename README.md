@@ -10,13 +10,17 @@ This repository contains ros node that implements continiously updated artificia
 #### For using planner with gazebo, online
 
 `roslaunch temperature_gradient_navigation load_map.launch input_map:=opti_map`
+
 `roslaunch temperature_gradient_navigation spawn_agent.launch `
+
 `roslaunch temperature_gradient_navigation temperature_gradient_navigation_online.launch`
 
 #### For using planner with gazebo, offline
 
 `roslaunch temperature_gradient_navigation load_map.launch input_map:=opti_map`
+
 `roslaunch temperature_gradient_navigation spawn_agent.launch `
+
 `roslaunch temperature_gradient_navigation temperature_gradient_navigation_offline.launch input_map:=opti_map`
 
 #### Demos
