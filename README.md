@@ -1,6 +1,9 @@
 # temperature_gradient_planner
 This repository contains ros node that implements continiously updated artificial temperature gradient based motion planner.
 
+#### Reference
+`Golan, Y., Edelman, S., Shapiro, A., & Rimon, E. (2017). Online Robot Navigation Using Continuously Updated Artificial Temperature Gradients. IEEE Robotics and Automation Letters, 2, 1280-1287.`
+
 #### For using planner with matlab
 `rosrun temperature_adient_navigation temperature_gradient_navigation_node _use_offline_map:=true`
 
