@@ -22,3 +22,7 @@ This repository contains ros node that implements continiously updated artificia
 #### Demos
 
 ![Dynamic Map Demo](demo/temperature_field_planner_dynamic_map_demo.gif)
+
+![Offline Tracjectory Demo](demo/temperature_field_planner_offline_trajectory_demo.gif)
+
+
